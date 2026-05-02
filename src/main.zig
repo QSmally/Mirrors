@@ -6,6 +6,8 @@ const mirrorZig = @import("mirror_zig");
 const port = 80;
 
 pub fn main(init: std.process.Init) !void {
+    mirrorer = .{ .io = init.io, .gpa = init.gpa };
+
     server = try httpz.Server(*Mirrorer).init(init.io, init.gpa, .{
         .address = .all(port),
     }, &mirrorer);
@@ -26,15 +28,14 @@ pub fn main(init: std.process.Init) !void {
     router.get("/mirror", redirectTo("https://github.com/QSmally/Mirrors"), .{});
     router.get("/privacy", redirectTo("https://qsmally.org/privacy"), .{});
 
-    var mirrorZigInst = Mirrorer {};
-    router.get("/zig/:triple", mirrorZig.get, .{ .handler = &mirrorZigInst });
+    router.get("/zig/:triple", mirrorZig.get, .{ .handler = &mirrorer });
 
     std.log.info("listening on port {}", .{ port });
 
     try server.listen();
 }
 
-var mirrorer: Mirrorer = .{};
+var mirrorer: Mirrorer = undefined;
 var server: httpz.Server(*Mirrorer) = undefined;
 
 fn register_signal(signal: std.posix.SIG, handler: anytype) void {
@@ -72,7 +73,46 @@ fn redirectTo(comptime location: []const u8) HttpzRoute {
 
 pub const Mirrorer = struct {
 
+    io: std.Io,
+    gpa: std.mem.Allocator,
+
+    signatures: std.StringHashMapUnmanaged([]const u8) = .empty,
+
     pub fn deinit(srv: *Mirrorer) void {
-        _ = srv;
+        var iterator = srv.signatures.iterator();
+        while (iterator.next()) |entry|
+            srv.gpa.free(entry.value_ptr.*);
+        srv.signatures.deinit(srv.gpa);
     }
 };
+
+pub fn extractVersion(filename: []const u8) ?[]const u8 {
+    var start: usize = 0;
+
+    while (start < filename.len) : (start += 1) {
+        if (std.ascii.isDigit(filename[start])) {
+            var end = start;
+            var dots: usize = 0;
+
+            while (end < filename.len) {
+                if (filename[end] == '.')
+                    dots += 1;
+                if (dots < 3) end += 1 else break;
+            }
+
+            const proposal = filename[start..end];
+            _ = std.SemanticVersion.parse(proposal) catch continue;
+            return proposal;
+        }
+    }
+    return null;
+}
+
+test extractVersion {
+    try std.testing.expectEqualSlices(u8, extractVersion("zig-0.16.0").?, "0.16.0");
+    try std.testing.expectEqualSlices(u8, extractVersion("zig-0.16.0.tar.gz").?, "0.16.0");
+    try std.testing.expectEqualSlices(u8, extractVersion("zig-0.16.0.tar.gz").?, "0.16.0");
+    try std.testing.expectEqualSlices(u8, extractVersion("zig-aarch64-0.16.0.tar.gz").?, "0.16.0");
+    try std.testing.expectEqual(extractVersion("zig-0.16"), null);
+    try std.testing.expectEqual(extractVersion("zig"), null);
+}
