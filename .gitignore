@@ -1,0 +1,17 @@
+
+.git
+
+# System
+.DS_Store
+
+# File editor
+Session.vim
+*.swp
+
+# Zig
+zig-out
+zig-pkg
+.zig-cache
+
+# Runtime
+mirror-zig

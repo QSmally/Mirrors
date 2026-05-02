@@ -1,0 +1,21 @@
+
+services:
+  mirrors-qsmally-org:
+    restart: always
+    build: .
+    container_name: mirrors-qsmally-org
+    image: mirrors-qsmally-org
+    environment:
+      - VIRTUAL_HOST=mirrors.qsmally.org
+      - VIRTUAL_NETWORK=nginx
+      - VIRTUAL_PORT=80
+      - LETSENCRYPT_HOST=mirrors.qsmally.org
+      - LETSENCRYPT_EMAIL=letsencrypt@qsmally.org
+    networks:
+      - default
+      - mirrors-network-bridge
+    entrypoint: /bin/mirrors
+
+networks:
+  mirrors-network-bridge:
+    name: mirrors-network-bridge

@@ -1,0 +1,24 @@
+.{
+    .name = .Mirror,
+    .version = "0.0.1",
+    .minimum_zig_version = "0.16.0",
+    .fingerprint = 0x5c0b1e7c6727accf,
+
+    .dependencies = .{
+        .minizign = .{
+            .url = "https://github.com/jedisct1/zig-minisign/archive/f2faea2eed81dfd6bed1737104e6f6dee6732598.tar.gz",
+            .hash = "minizign-0.1.10-gg18cV0eAQAAhnJpYpb8vL4WE_ooZ9bEcAZ4-srMjlHl",
+        },
+        .httpz = .{
+            .url = "https://github.com/karlseguin/http.zig/archive/9529d10cb7ef2d9a56e2e8e859afddabf6badf5c.tar.gz",
+            .hash = "httpz-0.0.0-PNVzrBu9BwC__muOxHYDIFGgKbhmsNWQHitrR0BIweJY",
+        },
+    },
+
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "zig"
+    }
+}

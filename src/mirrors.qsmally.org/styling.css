@@ -1,0 +1,125 @@
+
+/*
+    © Joey Smalen. All rights reserved.
+*/
+
+* {
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    background: #010510;
+    color: #fff;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+    font-size: 14px;
+    height: calc(100% + (var(--safe-area-inset-top) + var(--safe-area-inset-bottom)));
+    padding-top: constant(safe-area-inset-top);
+    padding-top: env(safe-area-inset-top);
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+/* Layout */
+
+main {
+    display: flex;
+    justify-content: center;
+    overflow: hidden;
+    flex: 1;
+}
+
+.content {
+    display: flex;
+    flex-direction: column;
+    width: 75vw;
+    margin: 50px 20px;
+}
+
+.profile {
+    max-width: 100px;
+    border-radius: 36%;
+}
+
+.spacer {
+    height: 3em;
+}
+
+li {
+    list-style-position: inside;
+}
+
+footer {
+    display: flex;
+    justify-content: space-between;
+    overflow: hidden;
+    align-items: end;
+}
+
+footer > * {
+    font-size: 90%;
+    margin: 10px 20px;
+}
+
+/* Style override */
+
+a {
+    color: inherit;
+    text-decoration: none;
+    transition: ease-in 70ms;
+}
+
+a:hover {
+    color: #fff;
+    font-weight: 750 !important;
+}
+
+.underlined a {
+    text-decoration: underline;
+}
+
+.underlined a:hover {
+    font-weight: 600 !important;
+}
+
+b, strong, th {
+    font-weight: 600;
+}
+
+p, ul, table {
+    padding-top: 24px;
+}
+
+/* Text style */
+
+.text-section {
+    color: rgb(225, 228, 229);
+    font-size: 2.5em;
+    font-weight: 750;
+}
+
+.entity {
+    font-weight: 300;
+}
+
+.entity-bold {
+    font-weight: 475;
+}
+
+/* Responsive */
+
+@media screen and (max-width: 800px) {
+    .content {
+        width: 100vw;
+    }
+}
+
+@media screen and (max-width: 385px) {
+    .content {
+        font-size: 75%;
+    }
+}
