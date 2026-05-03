@@ -125,3 +125,5 @@ pub fn serve(app: *App, res: *httpz.Response, upstream_uri: []const u8, path: []
     var reader = file.reader(app.io, &file_buffer);
     _ = try reader.interface.streamRemaining(res.writer());
 }
+
+pub fn no_validation(_: *App, _: std.mem.Allocator, _: []const u8, _: std.Io.File) !void {}

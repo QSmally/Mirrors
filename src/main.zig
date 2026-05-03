@@ -2,15 +2,14 @@
 const std = @import("std");
 const httpz = @import("httpz");
 const mirrorZig = @import("mirror_zig");
-
-const port = 80;
+const mirrorCdn = @import("mirror_cdn");
 
 pub fn main(init: std.process.Init) !void {
     var app = App { .io = init.io, .gpa = init.gpa };
     defer app.deinit();
 
     server = try httpz.Server(*App).init(init.io, init.gpa, .{
-        .address = .all(port),
+        .address = .all(options.port),
     }, &app);
 
     defer server.deinit();
@@ -29,9 +28,10 @@ pub fn main(init: std.process.Init) !void {
     router.get("/mirror", redirectTo("https://github.com/QSmally/Mirrors"), .{});
     router.get("/privacy", redirectTo("https://qsmally.org/privacy"), .{});
 
-    router.get("/zig/:triple", mirrorZig.get, .{ .handler = &app });
+    router.get("/zig/:triple", mirrorZig.get, .{});
+    router.get("/cdn/:id", mirrorCdn.get, .{});
 
-    std.log.info("listening on port {}", .{ port });
+    std.log.info("listening on port {}", .{ options.port });
 
     try server.listen();
 }

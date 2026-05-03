@@ -57,7 +57,7 @@ pub fn waitTag(app: *App, tag: []const u8) !InFlightIssue {
         try app.in_flight_lock.lock(app.io);
         defer app.in_flight_lock.unlock(app.io);
 
-        break :blk app.in_flight_map.get(tag) orelse {
+        var existing_record = app.in_flight_map.get(tag) orelse {
             std.log.debug("thread {} waitTag {s} (leader)", .{ std.Thread.getCurrentId(), tag });
 
             const new_record = try app.gpa.create(InFlightRequest);
@@ -68,20 +68,22 @@ pub fn waitTag(app: *App, tag: []const u8) !InFlightIssue {
             try app.in_flight_map.put(app.gpa, tag, new_record);
             return .leader;
         };
+
+        existing_record.references += 1; // prevents deallocation
+        break :blk existing_record;
     };
 
     std.log.debug("thread {} waitTag {s} (follower)", .{ std.Thread.getCurrentId(), tag });
 
-    {
+    record.lock.lockShared(app.io) catch |err| {
         try app.in_flight_lock.lock(app.io);
         defer app.in_flight_lock.unlock(app.io);
-        record.references += 1;
-    }
+        record.references -= 1; // clean-up
+        return err;
+    };
 
-    try record.lock.lockShared(app.io);
     record.lock.unlockShared(app.io);
     try app.completeTag(tag, .follower);
-
     return .follower;
 }
 

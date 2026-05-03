@@ -7,6 +7,7 @@ services:
     image: mirrors-qsmally-org
     volumes:
       - "./mirror-zig:/mirror-zig:rw"
+      - "./cdn:/cdn:ro"
     environment:
       - VIRTUAL_HOST=mirrors.qsmally.org
       - VIRTUAL_NETWORK=nginx
