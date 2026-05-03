@@ -73,6 +73,7 @@ fn redirectTo(comptime location: []const u8) HttpzRoute {
 pub const App = @import("App.zig");
 pub const tools = @import("tools.zig");
 pub const cache = @import("cache.zig");
+pub const options = @import("options");
 
 test {
     std.testing.refAllDecls(@This());

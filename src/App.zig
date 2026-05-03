@@ -11,6 +11,8 @@ failure_lock: std.Io.Mutex = .init,
 failure_map: std.StringHashMapUnmanaged(i64) = .empty,
 in_flight_lock: std.Io.Mutex = .init,
 in_flight_map: std.StringHashMapUnmanaged(*InFlightRequest) = .empty,
+housekeeping_lock: std.Io.Mutex = .init,
+housekeeping_last_sweep: std.Io.Timestamp = .zero,
 signature_map: std.StringHashMapUnmanaged([]const u8) = .empty,
 
 pub fn deinit(app: *App) void {

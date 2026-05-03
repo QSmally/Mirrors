@@ -4,8 +4,6 @@ const httpz = @import("httpz");
 const minizign = @import("minizign");
 const lib = @import("lib");
 
-const failure_timeout_s = 120;
-
 pub fn get(app: *lib.App, req: *httpz.Request, res: *httpz.Response) !void {
     const begin = std.Io.Clock.boot.now(app.io);
     const triple = req.param("triple") orelse return error.NotFound;
@@ -27,7 +25,7 @@ pub fn get(app: *lib.App, req: *httpz.Request, res: *httpz.Response) !void {
 
         const timestamp = app.failure_map.get(upstream_uri) orelse break :failure;
         const now = std.Io.Clock.boot.now(app.io).toSeconds();
-        if (now - timestamp < failure_timeout_s) return error.RateLimit;
+        if (now - timestamp < lib.options.fail_ratelimit_s) return error.RateLimit;
 
         _ = app.failure_map.remove(upstream_uri);
     }

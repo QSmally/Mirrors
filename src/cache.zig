@@ -3,6 +3,7 @@ const std = @import("std");
 const tools = @import("tools.zig");
 const App = @import("App.zig");
 const httpz = @import("httpz");
+const options = @import("options");
 
 const cwd = std.Io.Dir.cwd();
 
@@ -10,6 +11,10 @@ pub fn fetch(app: *App, arena: std.mem.Allocator, upstream_uri: []const u8, dest
     if (try app.waitTag(upstream_uri) == .follower)
         return;
     defer app.completeTag(upstream_uri, .leader) catch |err| std.log.err("completeTag {}", .{ err });
+
+    const dir_path = std.fs.path.dirname(dest_path) orelse "/tmp";
+    try housekeeping(app, dir_path);
+
     std.log.debug("fetching {s}...", .{ upstream_uri });
 
     const uri = try std.Uri.parse(upstream_uri);
@@ -26,7 +31,7 @@ pub fn fetch(app: *App, arena: std.mem.Allocator, upstream_uri: []const u8, dest
         return err;
     };
 
-    const tmp_path = try std.fmt.allocPrint(arena, "{s}/.tmp.{s}", .{ std.fs.path.dirname(dest_path) orelse "/tmp", std.fs.path.basename(dest_path) });
+    const tmp_path = try std.fmt.allocPrint(arena, "{s}/.tmp.{s}", .{ dir_path, std.fs.path.basename(dest_path) });
     const file = try cwd.createFile(app.io, tmp_path, .{});
     errdefer cwd.deleteFile(app.io, tmp_path) catch {};
     defer file.close(app.io);
@@ -47,6 +52,55 @@ pub fn fetch(app: *App, arena: std.mem.Allocator, upstream_uri: []const u8, dest
     std.log.info("saved {} bytes to {s}", .{ bytes, dest_path });
 }
 
+var prng = std.Random.DefaultPrng.init(1234);
+const random = prng.random();
+
+pub fn housekeeping(app: *App, dir_path: []const u8) !void {
+    if (!app.housekeeping_lock.tryLock())
+        return;
+    defer app.housekeeping_lock.unlock(app.io);
+
+    const now = std.Io.Clock.boot.now(app.io);
+
+    if (app.housekeeping_last_sweep.durationTo(now).toSeconds() < options.housekeeping_s)
+        return;
+    std.log.debug("housekeeping...", .{});
+
+    const dir = try cwd.openDir(app.io, dir_path, .{ .iterate = true });
+    defer dir.close(app.io);
+
+    var iterator = dir.iterate();
+    var list: std.ArrayList([]const u8) = .empty;
+
+    defer {
+        for (list.items) |file_name|
+            app.gpa.free(file_name);
+        list.deinit(app.gpa);
+    }
+
+    while (try iterator.next(app.io)) |entry| {
+        if (std.mem.startsWith(u8, entry.name, ".") or entry.kind != .file)
+            continue;
+        const file_name = try app.gpa.dupe(u8, entry.name);
+        errdefer app.gpa.free(file_name);
+
+        try list.append(app.gpa, file_name);
+    }
+
+    std.log.debug("housekeeping counted {} files", .{ list.items.len });
+
+    while (list.items.len >= options.housekeeping_len) {
+        const random_idx = random.intRangeLessThan(usize, 0, list.items.len);
+        const file_name = list.swapRemove(random_idx);
+        defer app.gpa.free(file_name);
+
+        std.log.info("housekeeping to remove {s} ({} total)", .{ file_name, list.items.len });
+        dir.deleteFile(app.io, file_name) catch |err| std.log.warn("deleteFile {s} {}", .{ file_name, err });
+    }
+
+    app.housekeeping_last_sweep = now;
+}
+
 const validate = *const fn (*App, std.mem.Allocator, []const u8, std.Io.File) anyerror!void;
 
 pub fn serve(app: *App, res: *httpz.Response, upstream_uri: []const u8, path: []const u8, validate_file: validate) !void {
@@ -57,7 +111,7 @@ pub fn serve(app: *App, res: *httpz.Response, upstream_uri: []const u8, path: []
 
     validate_file(app, res.arena, upstream_uri, file) catch |err| {
         if (err == error.SignatureVerificationFailed) {
-            try cwd.deleteFile(app.io, path);
+            cwd.deleteFile(app.io, path) catch |d_err| std.log.warn("deleteFile {s} {}", .{ path, d_err });
             res.header("X-Cache-Status", "UPDATING");
         }
 

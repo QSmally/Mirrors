@@ -11,6 +11,11 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(default_target);
     const optimize = b.standardOptimizeOption(.{});
 
+    const options = b.addOptions();
+    options.addOption(usize, "housekeeping_s", b.option(usize, "housekeeping_s", "minimum housekeeping interval in seconds, default 500 seconds") orelse 500);
+    options.addOption(usize, "housekeeping_len", b.option(usize, "housekeeping_len", "maximum housekeeping file len, default 16 files (* 50 = ~800 MiB)") orelse 16);
+    options.addOption(usize, "fail_ratelimit_s", b.option(usize, "fail_ratelimit_s", "failure ratelimit in seconds, default 120 seconds") orelse 120);
+
     const minizign = b.dependency("minizign", .{
         .target = target,
         .optimize = optimize });
@@ -31,6 +36,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize });
     root_module.addImport("httpz", httpz.module("httpz"));
     root_module.addImport("mirror_zig", mirror_zig);
+    root_module.addOptions("options", options);
 
     mirror_zig.addImport("lib", root_module);
 
