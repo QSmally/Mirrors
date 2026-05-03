@@ -5,6 +5,8 @@ services:
     build: .
     container_name: mirrors-qsmally-org
     image: mirrors-qsmally-org
+    volumes:
+      - "./mirror-zig:/mirror-zig:rw"
     environment:
       - VIRTUAL_HOST=mirrors.qsmally.org
       - VIRTUAL_NETWORK=nginx
@@ -14,6 +16,8 @@ services:
     networks:
       - default
       - mirrors-network-bridge
+    # ports:
+    #   - 80:80
     entrypoint: /bin/mirrors
 
 networks:

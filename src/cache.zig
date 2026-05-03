@@ -26,7 +26,7 @@ pub fn fetch(app: *App, arena: std.mem.Allocator, upstream_uri: []const u8, dest
         return err;
     };
 
-    const tmp_path = try std.fmt.allocPrint(arena, "download/{s}", .{ std.fs.path.basename(dest_path) });
+    const tmp_path = try std.fmt.allocPrint(arena, "{s}/.tmp.{s}", .{ std.fs.path.dirname(dest_path) orelse "/tmp", std.fs.path.basename(dest_path) });
     const file = try cwd.createFile(app.io, tmp_path, .{});
     errdefer cwd.deleteFile(app.io, tmp_path) catch {};
     defer file.close(app.io);
