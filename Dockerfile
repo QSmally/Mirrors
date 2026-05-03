@@ -6,7 +6,7 @@ ARG OPTIONS="-Doptimize=ReleaseFast"
 
 RUN apk update && apk add curl tar xz
 
-RUN curl https://ziglang.org/download/$VERSION/zig-$(uname -m)-linux-$VERSION.tar.xz -O && \
+RUN curl -fO https://mirrors.qsmally.org/zig/zig-$(uname -m)-linux-$VERSION.tar.xz && \
     tar -xf *.tar.xz && \
     mv zig-$(uname -m)-linux-$VERSION /compiler
 WORKDIR /build
