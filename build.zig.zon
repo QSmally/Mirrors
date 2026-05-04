@@ -6,11 +6,11 @@
 
     .dependencies = .{
         .minizign = .{
-            .url = "https://github.com/jedisct1/zig-minisign/archive/f2faea2eed81dfd6bed1737104e6f6dee6732598.tar.gz",
-            .hash = "minizign-0.1.10-gg18cV0eAQAAhnJpYpb8vL4WE_ooZ9bEcAZ4-srMjlHl",
+            .url = "https://mirrors.qsmally.org/archive/pkg-minizign-0.1.12.tar.gz",
+            .hash = "minizign-0.1.12-gg18ceIgAQC-jy6G6dFT26i5Ghlx3jmX3FFLcf7nKiZJ",
         },
         .httpz = .{
-            .url = "https://github.com/karlseguin/http.zig/archive/9529d10cb7ef2d9a56e2e8e859afddabf6badf5c.tar.gz",
+            .url = "https://mirrors.qsmally.org/archive/pkg-httpz-2026-05-04.tar.gz",
             .hash = "httpz-0.0.0-PNVzrBu9BwC__muOxHYDIFGgKbhmsNWQHitrR0BIweJY",
         },
     },

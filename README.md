@@ -10,6 +10,8 @@ This application requires the following directories in CWD:
 * `mirror-zig` (Zig mirror and temporary files)
 * `mirror-archive` (archive and temporary files)
 
+Copy `.env.example` to `.env` and do your thing.
+
 ```bash
 $ zig build run
 ```
