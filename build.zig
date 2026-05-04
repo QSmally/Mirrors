@@ -13,9 +13,6 @@ pub fn build(b: *std.Build) void {
 
     const options = b.addOptions();
     options.addOption(u16, "port", b.option(u16, "port", "HTTP port, default 80") orelse 80);
-    options.addOption(usize, "housekeeping_s", b.option(usize, "housekeeping_s", "minimum housekeeping interval in seconds, default 500 seconds") orelse 500);
-    options.addOption(usize, "housekeeping_len", b.option(usize, "housekeeping_len", "maximum housekeeping file len, default 16 files (* 50 = ~800 MiB)") orelse 16);
-    options.addOption(usize, "fail_ratelimit_s", b.option(usize, "fail_ratelimit_s", "failure ratelimit in seconds, default 120 seconds") orelse 120);
 
     const minizign = b.dependency("minizign", .{
         .target = target,
@@ -31,11 +28,11 @@ pub fn build(b: *std.Build) void {
     mirror_zig.addImport("httpz", httpz.module("httpz"));
     mirror_zig.addImport("minizign", minizign.module("minizign"));
 
-    const mirror_cdn = b.addModule("mirror_cdn", .{
-        .root_source_file = b.path("cdn/module.zig"),
+    const mirror_archive = b.addModule("mirror_archive", .{
+        .root_source_file = b.path("archive/module.zig"),
         .target = target,
         .optimize = optimize });
-    mirror_cdn.addImport("httpz", httpz.module("httpz"));
+    mirror_archive.addImport("httpz", httpz.module("httpz"));
 
     const root_module = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
@@ -43,11 +40,11 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize });
     root_module.addImport("httpz", httpz.module("httpz"));
     root_module.addImport("mirror_zig", mirror_zig);
-    root_module.addImport("mirror_cdn", mirror_cdn);
+    root_module.addImport("mirror_archive", mirror_archive);
     root_module.addOptions("options", options);
 
     mirror_zig.addImport("lib", root_module);
-    mirror_cdn.addImport("lib", root_module);
+    mirror_archive.addImport("lib", root_module);
 
     const exec = b.addExecutable(.{
         .name = "mirrors",

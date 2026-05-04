@@ -6,14 +6,31 @@ const App = @This();
 
 io: std.Io,
 gpa: std.mem.Allocator,
+archive_key: ?[]const u8,
+zig_file_len: usize,
+failure_ratelimit_s: usize,
 
 failure_lock: std.Io.Mutex = .init,
 failure_map: std.StringHashMapUnmanaged(i64) = .empty,
 in_flight_lock: std.Io.Mutex = .init,
 in_flight_map: std.StringHashMapUnmanaged(*InFlightRequest) = .empty,
-housekeeping_lock: std.Io.Mutex = .init,
-housekeeping_last_sweep: std.Io.Timestamp = .zero,
-signature_map: std.StringHashMapUnmanaged([]const u8) = .empty,
+
+const default_zig_file_len = 32; // effectively 16, due to signatures
+const default_failure_ratelimit_s = 120;
+
+pub fn init(props: std.process.Init) App {
+    return .{
+        .io = props.io,
+        .gpa = props.gpa,
+        .archive_key = props.environ_map.get("MIRRORS_ARCHIVE_KEY"),
+        .zig_file_len = if (props.environ_map.get("MIRRORS_ZIG_FILE_LEN")) |str|
+            std.fmt.parseInt(usize, str, 0) catch default_zig_file_len else
+            default_zig_file_len,
+        .failure_ratelimit_s = if (props.environ_map.get("MIRRORS_FAILURE_RATELIMIT_S")) |str|
+            std.fmt.parseInt(usize, str, 0) catch default_failure_ratelimit_s else
+            default_failure_ratelimit_s
+    };
+}
 
 pub fn deinit(app: *App) void {
     app.failure_map.deinit(app.gpa);
@@ -22,24 +39,26 @@ pub fn deinit(app: *App) void {
     while (iterator2.next()) |entry|
         app.gpa.destroy(entry.value_ptr.*);
     app.in_flight_map.deinit(app.gpa);
-
-    var iterator = app.signature_map.iterator();
-    while (iterator.next()) |entry|
-        app.gpa.free(entry.value_ptr.*);
-    app.signature_map.deinit(app.gpa);
 }
 
 pub fn uncaughtError(_: *App, _: *httpz.Request, res: *httpz.Response, err: anyerror) void {
     std.log.err("<<< {}", .{ err });
 
     res.status = switch (err) {
+        error.Forbidden => 403,
         error.Canceled => 419,
         error.RateLimit => 429,
-        error.NotFound => 404,
+        error.FileNotFound => 404,
         error.UpstreamError => 504,
         error.SignatureVerificationFailed => 503,
         else => 500
     };
+}
+
+pub fn auth(app: *App, header: []const u8) !void {
+    std.log.debug("X-Mirrors-Key: {s}", .{ header });
+    const expected_key = app.archive_key orelse return error.Forbidden;
+    if (!std.mem.eql(u8, expected_key, header)) return error.Forbidden;
 }
 
 pub const InFlightRequest = struct {

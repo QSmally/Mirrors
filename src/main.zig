@@ -2,11 +2,13 @@
 const std = @import("std");
 const httpz = @import("httpz");
 const mirrorZig = @import("mirror_zig");
-const mirrorCdn = @import("mirror_cdn");
+const mirrorArchive = @import("mirror_archive");
 
 pub fn main(init: std.process.Init) !void {
-    var app = App { .io = init.io, .gpa = init.gpa };
+    var app = App.init(init);
     defer app.deinit();
+
+    std.log.debug("init with archive_key={?s}", .{ app.archive_key });
 
     server = try httpz.Server(*App).init(init.io, init.gpa, .{
         .address = .all(options.port),
@@ -29,7 +31,7 @@ pub fn main(init: std.process.Init) !void {
     router.get("/privacy", redirectTo("https://qsmally.org/privacy"), .{});
 
     router.get("/zig/:triple", mirrorZig.get, .{});
-    router.get("/cdn/:id", mirrorCdn.get, .{});
+    router.get("/archive/:id", mirrorArchive.get, .{});
 
     std.log.info("listening on port {}", .{ options.port });
 
@@ -71,9 +73,10 @@ fn redirectTo(comptime location: []const u8) HttpzRoute {
 }
 
 pub const App = @import("App.zig");
-pub const tools = @import("tools.zig");
 pub const cache = @import("cache.zig");
+pub const http = @import("http.zig");
 pub const options = @import("options");
+pub const tools = @import("tools.zig");
 
 test {
     std.testing.refAllDecls(@This());

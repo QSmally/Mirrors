@@ -8,7 +8,7 @@ Mirrors of free software and such.
 This application requires the following directories in CWD:
 
 * `mirror-zig` (Zig mirror and temporary files)
-* `cdn` (static CDN files)
+* `mirror-archive` (archive and temporary files)
 
 ```bash
 $ zig build run

@@ -7,13 +7,14 @@ services:
     image: mirrors-qsmally-org
     volumes:
       - "./mirror-zig:/mirror-zig:rw"
-      - "./cdn:/cdn:ro"
+      - "./mirror-archive:/mirror-archive:rw"
     environment:
       - VIRTUAL_HOST=mirrors.qsmally.org
       - VIRTUAL_NETWORK=nginx
       - VIRTUAL_PORT=80
       - LETSENCRYPT_HOST=mirrors.qsmally.org
       - LETSENCRYPT_EMAIL=letsencrypt@qsmally.org
+      - MIRRORS_ARCHIVE_KEY=${MIRRORS_ARCHIVE_KEY}
     networks:
       - default
       - mirrors-network-bridge

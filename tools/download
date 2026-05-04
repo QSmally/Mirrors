@@ -1,0 +1,27 @@
+#!/bin/sh
+
+MIRRORS_API=${MIRRORS_API:-"https://mirrors.qsmally.org"}
+
+if [ -z "$1" ]; then
+    echo >&2 "error: missing argument: file"
+    exit 1
+fi
+
+if [ -e "$1" ]; then
+    echo >&2 "error: file exists: $1"
+    exit 1
+fi
+
+URI="$MIRRORS_API/archive/$1"
+
+echo >&2 "reaching $URI..."
+
+if [ ! -z "$2" ]; then
+    echo >&2 "upstream $2..."
+    curl -fO \
+        -H "X-Upstream-Url: $2" \
+        -H "X-Mirrors-Key: $MIRRORS_ARCHIVE_KEY" \
+        "$URI"
+else
+    curl -fO "$URI"
+fi

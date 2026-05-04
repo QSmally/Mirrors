@@ -14,4 +14,6 @@ zig-pkg
 .zig-cache
 
 # Runtime
+.env
 mirror-zig
+mirror-archive

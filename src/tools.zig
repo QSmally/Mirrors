@@ -1,6 +1,4 @@
 
-const builtin = @import("builtin");
-const pkg = @import("build.zig.zon");
 const std = @import("std");
 const httpz = @import("httpz");
 
@@ -35,19 +33,10 @@ test extractVersion {
     try std.testing.expectEqual(extractVersion("zig"), null);
 }
 
-pub fn httpPreflightRequest(request: *std.http.Client.Request) !std.http.Client.Response {
-    try request.sendBodiless();
-
-    var buffer: [8 * 1024]u8 = undefined;
-    const response = try request.receiveHead(&buffer);
-
-    return switch (response.head.status) {
-        .ok => response,
-        .not_found => error.NotFound,
-        else => error.UpstreamError
-    };
+pub fn write(io: std.Io, path: []const u8, content: []const u8) !void {
+    const file = try cwd.createFile(io, path, .{});
+    defer file.close(io);
+    try file.writeStreamingAll(io, content);
 }
 
-pub const user_agent = std.fmt.comptimePrint("Mirrors/{s} (mirrors.qsmally.org) Zig/{s}", .{
-    pkg.version,
-    builtin.zig_version_string });
+pub const cwd = std.Io.Dir.cwd();

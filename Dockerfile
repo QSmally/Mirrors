@@ -16,7 +16,7 @@ FROM compiler AS build
 COPY build.zig build.zig.zon /build
 COPY src /build/src
 COPY zig /build/zig
-COPY cdn /build/cdn
+COPY archive /build/archive
 RUN /compiler/zig build $OPTIONS
 
 FROM alpine AS output
