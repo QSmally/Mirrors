@@ -19,6 +19,8 @@
         "build.zig",
         "build.zig.zon",
         "src",
-        "zig"
+        "zig",
+        "archive",
+        "README.md"
     }
 }
