@@ -1,11 +1,13 @@
 
 const std = @import("std");
 const httpz = @import("httpz");
+const zimit = @import("zimit");
 const mirrorZig = @import("mirror_zig");
 const mirrorArchive = @import("mirror_archive");
 
 pub fn main(init: std.process.Init) !void {
-    var app = App.init(init);
+    var clk = zimit.SystemClock.init(init.io);
+    var app = try App.init(init, &clk);
     defer app.deinit();
 
     std.log.debug("init with archive_key={?s}", .{ app.archive_key });

@@ -1,6 +1,7 @@
 
 const std = @import("std");
 const httpz = @import("httpz");
+const zimit = @import("zimit");
 
 const App = @This();
 
@@ -10,15 +11,30 @@ archive_key: ?[]const u8,
 zig_file_len: usize,
 failure_ratelimit_s: usize,
 
+global_limiter_lock: std.Io.Mutex = .init,
+global_limiter: zimit.GlobalLimiter,
 failure_lock: std.Io.Mutex = .init,
 failure_map: std.StringHashMapUnmanaged(i64) = .empty,
 in_flight_lock: std.Io.Mutex = .init,
 in_flight_map: std.StringHashMapUnmanaged(*InFlightRequest) = .empty,
 
+const default_rate_per_minute = 5;
+const default_rate_burst = 2;
 const default_zig_file_len = 32; // effectively 16, due to signatures
 const default_failure_ratelimit_s = 120;
 
-pub fn init(props: std.process.Init) App {
+pub fn init(props: std.process.Init, clk: *zimit.SystemClock) !App {
+    const global_limiter = try zimit.GlobalLimiter.init(.{
+        .rate = if (props.environ_map.get("MIRRORS_RATE_PER_MINUTE")) |str|
+            std.fmt.parseInt(u32, str, 0) catch default_rate_per_minute else
+            default_rate_per_minute,
+        .burst = if (props.environ_map.get("MIRRORS_RATE_BURST")) |str|
+            std.fmt.parseInt(u32, str, 0) catch default_rate_burst else
+            default_rate_burst,
+        .per = .minute,
+        .clock = clk.clock()
+    });
+
     return .{
         .io = props.io,
         .gpa = props.gpa,
@@ -28,7 +44,8 @@ pub fn init(props: std.process.Init) App {
             default_zig_file_len,
         .failure_ratelimit_s = if (props.environ_map.get("MIRRORS_FAILURE_RATELIMIT_S")) |str|
             std.fmt.parseInt(usize, str, 0) catch default_failure_ratelimit_s else
-            default_failure_ratelimit_s
+            default_failure_ratelimit_s,
+        .global_limiter = global_limiter
     };
 }
 
@@ -53,6 +70,12 @@ pub fn uncaughtError(_: *App, _: *httpz.Request, res: *httpz.Response, err: anye
         error.SignatureVerificationFailed => 503,
         else => 500
     };
+}
+
+pub fn global_rate_limit(app: *App) !bool {
+    try app.global_limiter_lock.lock(app.io);
+    defer app.global_limiter_lock.unlock(app.io);
+    return app.global_limiter.allow() == .denied;
 }
 
 pub fn auth(app: *App, header: []const u8) !void {

@@ -20,6 +20,9 @@ pub fn build(b: *std.Build) void {
     const httpz = b.dependency("httpz", .{
         .target = target,
         .optimize = optimize });
+    const zimit = b.dependency("zimit", .{
+        .target = target,
+        .optimize = optimize });
 
     const mirror_zig = b.addModule("mirror_zig", .{
         .root_source_file = b.path("zig/module.zig"),
@@ -27,6 +30,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize });
     mirror_zig.addImport("httpz", httpz.module("httpz"));
     mirror_zig.addImport("minizign", minizign.module("minizign"));
+    mirror_zig.addImport("zimit", zimit.module("zimit"));
 
     const mirror_archive = b.addModule("mirror_archive", .{
         .root_source_file = b.path("archive/module.zig"),
@@ -39,6 +43,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize });
     root_module.addImport("httpz", httpz.module("httpz"));
+    root_module.addImport("zimit", zimit.module("zimit"));
     root_module.addImport("mirror_zig", mirror_zig);
     root_module.addImport("mirror_archive", mirror_archive);
     root_module.addOptions("options", options);

@@ -36,6 +36,9 @@ pub fn get(app: *lib.App, req: *httpz.Request, res: *httpz.Response) !void {
 
     lib.cache.serve(app, res, cache_path, validate_file, upstream_uri) catch |err| switch (err) {
         error.FileNotFound => {
+            if (try app.global_rate_limit())
+                return error.RateLimit;
+
             if (try lib.cache.directory_len(app.io, archive) > app.zig_file_len)
                 return error.RateLimit;
 

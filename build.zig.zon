@@ -13,6 +13,10 @@
             .url = "https://mirrors.qsmally.org/archive/pkg-httpz-2026-05-04.tar.gz",
             .hash = "httpz-0.0.0-PNVzrBu9BwC__muOxHYDIFGgKbhmsNWQHitrR0BIweJY",
         },
+        .zimit = .{
+            .url = "https://mirrors.qsmally.org/archive/pkg-zimit-0.2.1.tar.gz",
+            .hash = "zimit-0.2.1-PtOTg1WIAQA_8l-Qv1udeHK7ATsY86s-P8vFAyyb_qOK",
+        }
     },
 
     .paths = .{
