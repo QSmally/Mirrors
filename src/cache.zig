@@ -16,7 +16,10 @@ pub fn fetch(app: *App, arena: std.mem.Allocator, upstream_uri: []const u8, dest
     const file = http.toFileAtomic(app.io, arena, try std.Uri.parse(upstream_uri), dest_path) catch |err| {
         try app.failure_lock.lock(app.io);
         defer app.failure_lock.unlock(app.io);
-        try app.failure_map.put(app.gpa, upstream_uri, std.Io.Clock.boot.now(app.io).toSeconds());
+
+        const allocator = app.map_arena.allocator();
+        const owned_upstream_uri = try allocator.dupe(u8, upstream_uri);
+        try app.failure_map.put(allocator, owned_upstream_uri, app.now());
         return err;
     };
     defer file.close(app.io);

@@ -5,12 +5,10 @@ const minizign = @import("minizign");
 const lib = @import("lib");
 
 pub fn get(app: *lib.App, req: *httpz.Request, res: *httpz.Response) !void {
-    const begin = std.Io.Clock.boot.now(app.io);
+    const begin = app.now();
     const triple = req.param("triple") orelse return error.FileNotFound;
     const version = lib.tools.extractVersion(triple) orelse return error.FileNotFound;
     if (std.mem.startsWith(u8, triple, ".")) return error.FileNotFound;
-
-    std.log.info(">>> {s} ({s})", .{ triple, version });
 
     const upstream_uri = try std.fmt.allocPrint(req.arena, "https://ziglang.org/download/{s}/{s}", .{ version, triple });
 
@@ -26,10 +24,11 @@ pub fn get(app: *lib.App, req: *httpz.Request, res: *httpz.Response) !void {
         defer app.failure_lock.unlock(app.io);
 
         const timestamp = app.failure_map.get(upstream_uri) orelse break :failure;
-        const now = std.Io.Clock.boot.now(app.io).toSeconds();
-        if (now - timestamp < app.failure_ratelimit_s) return error.RateLimit;
+        if (timestamp.durationTo(app.now()).toSeconds() < app.failure_ratelimit_s) return error.RateLimit;
 
-        _ = app.failure_map.remove(upstream_uri);
+        const allocator = app.map_arena.allocator();
+        const entry = app.failure_map.fetchRemove(upstream_uri);
+        if (entry) |the_entry| allocator.free(the_entry.key);
     }
 
     const cache_path = try std.fmt.allocPrint(req.arena, "{s}/{s}", .{ archive, triple });
@@ -46,8 +45,7 @@ pub fn get(app: *lib.App, req: *httpz.Request, res: *httpz.Response) !void {
             try lib.cache.serve(app, res, cache_path, validate_file, upstream_uri);
             res.header("X-Cache-Status", "MISS");
 
-            const end = std.Io.Clock.boot.now(app.io);
-            std.log.info("<<< from upstream (took {}s)", .{ begin.durationTo(end).toSeconds() });
+            std.log.info("<<< from upstream (took {}s)", .{ begin.durationTo(app.now()).toSeconds() });
             return;
         },
         error.SignatureVerificationFailed => |the_err| {
@@ -62,8 +60,7 @@ pub fn get(app: *lib.App, req: *httpz.Request, res: *httpz.Response) !void {
     };
 
     res.header("X-Cache-Status", "HIT");
-    const end = std.Io.Clock.boot.now(app.io);
-    std.log.info("<<< from cache (took {}s)", .{ begin.durationTo(end).toSeconds() });
+    std.log.info("<<< from cache (took {}s)", .{ begin.durationTo(app.now()).toSeconds() });
 }
 
 const minisign_key = std.mem.trim(u8, @embedFile("minisign"), "\n\r");

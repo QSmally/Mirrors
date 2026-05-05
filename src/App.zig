@@ -11,12 +11,14 @@ archive_key: ?[]const u8,
 zig_file_len: usize,
 failure_ratelimit_s: usize,
 
-global_limiter_lock: std.Io.Mutex = .init,
-global_limiter: zimit.GlobalLimiter,
+map_arena: std.heap.ArenaAllocator,
+
 failure_lock: std.Io.Mutex = .init,
-failure_map: std.StringHashMapUnmanaged(i64) = .empty,
+failure_map: std.StringHashMapUnmanaged(std.Io.Timestamp) = .empty,
 in_flight_lock: std.Io.Mutex = .init,
 in_flight_map: std.StringHashMapUnmanaged(*InFlightRequest) = .empty,
+global_limiter_lock: std.Io.Mutex = .init,
+global_limiter: zimit.GlobalLimiter,
 
 const default_rate_per_minute = 5;
 const default_rate_burst = 2;
@@ -45,17 +47,21 @@ pub fn init(props: std.process.Init, clk: *zimit.SystemClock) !App {
         .failure_ratelimit_s = if (props.environ_map.get("MIRRORS_FAILURE_RATELIMIT_S")) |str|
             std.fmt.parseInt(usize, str, 0) catch default_failure_ratelimit_s else
             default_failure_ratelimit_s,
+        .map_arena = std.heap.ArenaAllocator.init(props.gpa),
         .global_limiter = global_limiter
     };
 }
 
 pub fn deinit(app: *App) void {
-    app.failure_map.deinit(app.gpa);
+    const allocator = app.map_arena.allocator();
+    app.failure_map.deinit(allocator);
+    app.in_flight_map.deinit(allocator);
+    app.map_arena.deinit();
+}
 
-    var iterator2 = app.in_flight_map.iterator();
-    while (iterator2.next()) |entry|
-        app.gpa.destroy(entry.value_ptr.*);
-    app.in_flight_map.deinit(app.gpa);
+pub fn dispatch(app: *App, action: httpz.Action(*App), req: *httpz.Request, res: *httpz.Response) !void {
+    std.log.info(">>> {s}", .{ req.url.path });
+    try action(app, req, res);
 }
 
 pub fn uncaughtError(_: *App, _: *httpz.Request, res: *httpz.Response, err: anyerror) void {
@@ -79,9 +85,13 @@ pub fn global_rate_limit(app: *App) !bool {
 }
 
 pub fn auth(app: *App, header: []const u8) !void {
-    std.log.debug("X-Mirrors-Key: {s}", .{ header });
+    std.log.info("X-Mirrors-Key: {s}", .{ header });
     const expected_key = app.archive_key orelse return error.Forbidden;
     if (!std.mem.eql(u8, expected_key, header)) return error.Forbidden;
+}
+
+pub fn now(app: *App) std.Io.Timestamp {
+    return std.Io.Clock.boot.now(app.io);
 }
 
 pub const InFlightRequest = struct {
@@ -99,15 +109,19 @@ pub fn waitTag(app: *App, tag: []const u8) !InFlightIssue {
         try app.in_flight_lock.lock(app.io);
         defer app.in_flight_lock.unlock(app.io);
 
-        var existing_record = app.in_flight_map.get(tag) orelse {
+        const existing_record = app.in_flight_map.get(tag) orelse {
             std.log.debug("thread {} waitTag {s} (leader)", .{ std.Thread.getCurrentId(), tag });
 
-            const new_record = try app.gpa.create(InFlightRequest);
-            errdefer app.gpa.destroy(new_record);
+            const allocator = app.map_arena.allocator();
+            const new_record = try allocator.create(InFlightRequest);
+            errdefer allocator.destroy(new_record);
             new_record.* = .{ .references = 1 };
 
-            try new_record.lock.lock(app.io);
-            try app.in_flight_map.put(app.gpa, tag, new_record);
+            const owned_tag = try allocator.dupe(u8, tag);
+            errdefer allocator.free(owned_tag);
+
+            try new_record.lock.lock(app.io); // lock until leader done
+            try app.in_flight_map.put(allocator, owned_tag, new_record);
             return .leader;
         };
 
@@ -133,7 +147,7 @@ pub fn completeTag(app: *App, tag: []const u8, issue: InFlightIssue) !void {
     try app.in_flight_lock.lock(app.io);
     defer app.in_flight_lock.unlock(app.io);
 
-    var record = app.in_flight_map.get(tag) orelse return;
+    const record = app.in_flight_map.get(tag) orelse return;
     record.references -= 1;
 
     std.log.debug("thread {} completeTag {s}", .{ std.Thread.getCurrentId(), tag });
@@ -142,7 +156,9 @@ pub fn completeTag(app: *App, tag: []const u8, issue: InFlightIssue) !void {
         record.lock.unlock(app.io);
 
     if (record.references == 0) {
-        _ = app.in_flight_map.remove(tag);
-        app.gpa.destroy(record);
+        const allocator = app.map_arena.allocator();
+        const entry = app.in_flight_map.fetchRemove(tag);
+        allocator.free(entry.?.key); // lock protected
+        allocator.destroy(record);
     }
 }

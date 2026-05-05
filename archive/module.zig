@@ -4,11 +4,9 @@ const httpz = @import("httpz");
 const lib = @import("lib");
 
 pub fn get(app: *lib.App, req: *httpz.Request, res: *httpz.Response) !void {
-    const begin = std.Io.Clock.boot.now(app.io);
+    const begin = app.now();
     const id = req.param("id") orelse return error.FileNotFound;
     if (std.mem.startsWith(u8, id, ".")) return error.FileNotFound;
-
-    std.log.info(">>> {s}", .{ id });
 
     const archive_path = try std.fmt.allocPrint(req.arena, "mirror-archive/{s}", .{ id });
 
@@ -29,13 +27,11 @@ pub fn get(app: *lib.App, req: *httpz.Request, res: *httpz.Response) !void {
             try lib.tools.write(app.io, archive_upstream_path, upstream_url);
             try lib.cache.serve(app, res, archive_path, lib.cache.no_validation, void);
 
-            const end = std.Io.Clock.boot.now(app.io);
-            std.log.info("<<< from archive upstream (took {}s)", .{ begin.durationTo(end).toSeconds() });
+            std.log.info("<<< from archive upstream (took {}s)", .{ begin.durationTo(app.now()).toSeconds() });
             return;
         },
         else => return err
     };
 
-    const end = std.Io.Clock.boot.now(app.io);
-    std.log.info("<<< from archive (took {}s)", .{ begin.durationTo(end).toSeconds() });
+    std.log.info("<<< from archive (took {}s)", .{ begin.durationTo(app.now()).toSeconds() });
 }
